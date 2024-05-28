@@ -1,26 +1,121 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
+import * as vscode from 'vscode'
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
+let githubProfileName: string | undefined
+
 export function activate(context: vscode.ExtensionContext) {
+  vscode.workspace.onDidChangeConfiguration((e) => {
+    if (e.affectsConfiguration('github-codeowner-checker.githubProfileName')) {
+      githubProfileName = vscode.workspace
+        .getConfiguration('github-codeowner-checker')
+        .get('githubProfileName')
+    }
+  })
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "ismycode" is now active!');
+  githubProfileName = vscode.workspace
+    .getConfiguration('github-codeowner-checker')
+    .get('githubProfileName')
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('ismycode.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from isMyCode!');
-	});
+  console.log(githubProfileName)
 
-	context.subscriptions.push(disposable);
+  vscode.window.onDidChangeActiveTextEditor((editor) => {
+    if (editor) {
+      checkCodeOwners(editor.document.fileName)
+    }
+  })
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('extension.checkCodeOwners', () => {
+      const editor = vscode.window.activeTextEditor
+      if (editor) {
+        checkCodeOwners(editor.document.fileName)
+      }
+    })
+  )
+
+  // 앱이 실행될 때 바로 checkCodeOwners 커맨드를 실행
+  if (vscode.window.activeTextEditor) {
+    checkCodeOwners(vscode.window.activeTextEditor.document.fileName)
+  }
+
+  vscode.window.showInformationMessage(
+    'Extension "github-codeowner-checker" is now active!'
+  )
 }
 
-// This method is called when your extension is deactivated
+async function checkCodeOwners(fileName: string) {
+  if (!githubProfileName) {
+    vscode.window.showWarningMessage(
+      'GitHub profile name is not set. Please configure it in the settings.'
+    )
+    return
+  }
+
+  const codeOwnersFiles = await vscode.workspace.findFiles('**/CODEOWNERS')
+  console.log('CODEOWNERS files:', codeOwnersFiles)
+
+  if (codeOwnersFiles.length === 0) {
+    vscode.window.showInformationMessage(
+      'No CODEOWNERS file found in the workspace.'
+    )
+    return
+  }
+
+  let isOwner = false
+  const relativeFileName = vscode.workspace.asRelativePath(fileName, false)
+  console.log('Relative file name:', relativeFileName)
+
+  for (const file of codeOwnersFiles) {
+    const content = (await vscode.workspace.openTextDocument(file)).getText()
+    const lines = content.split(/\r?\n/)
+    const codeOwnersDir = vscode.workspace
+      .asRelativePath(file, false)
+      .replace(/\/CODEOWNERS$/, '')
+
+    console.log('Checking file:', relativeFileName)
+    console.log('Against CODEOWNERS directory:', codeOwnersDir)
+
+    if (relativeFileName.startsWith(codeOwnersDir)) {
+      console.log('File is under the CODEOWNERS directory:', codeOwnersDir)
+
+      for (const line of lines) {
+        if (line.trim() && !line.startsWith('#')) {
+          const parts = line.split(/\s+/)
+          if (parts.length >= 2) {
+            const pattern = parts[0]
+            console.log('Pattern:', pattern)
+            console.log('Owners:', parts.slice(1))
+
+            if (
+              pattern === '*' ||
+              relativeFileName.match(new RegExp(pattern))
+            ) {
+              if (parts.slice(1).includes(githubProfileName)) {
+                isOwner = true
+                console.log('User is owner')
+                break
+              }
+            }
+          }
+        }
+      }
+
+      if (isOwner) {
+        break
+      }
+    }
+  }
+
+  if (!isOwner) {
+    vscode.window.setStatusBarMessage(
+      `You are not listed as a code owner for this file`,
+      5000
+    )
+  } else {
+    vscode.window.setStatusBarMessage(
+      `You are listed as a code owner for this file`,
+      5000
+    )
+  }
+}
+
 export function deactivate() {}

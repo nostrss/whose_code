@@ -9,15 +9,28 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onDidChangeActiveTextEditor"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "ismycode.helloWorld",
-        "title": "Hello World"
+        "command": "extension.checkCodeOwners",
+        "title": "Check CODEOWNERS"
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "GitHub CODEOWNER Checker",
+      "properties": {
+        "github-codeowner-checker.githubProfileName": {
+          "type": "string",
+          "default": "",
+          "description": "Your GitHub profile name"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
