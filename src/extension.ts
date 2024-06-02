@@ -15,7 +15,7 @@ export function activate(context: vscode.ExtensionContext) {
     .getConfiguration('github-codeowner-checker')
     .get('githubProfileName')
 
-  console.log(githubProfileName)
+  vscode.window.showInformationMessage(`your name is ${githubProfileName}`)
 
   vscode.window.onDidChangeActiveTextEditor((editor) => {
     if (editor) {
@@ -43,6 +43,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 async function checkCodeOwners(fileName: string) {
+  // 설정에 자기 아이디가 없는 경우 메시지 노출
   if (!githubProfileName) {
     vscode.window.showWarningMessage(
       'GitHub profile name is not set. Please configure it in the settings.'
@@ -51,7 +52,7 @@ async function checkCodeOwners(fileName: string) {
   }
 
   const codeOwnersFiles = await vscode.workspace.findFiles('**/CODEOWNERS')
-  console.log('CODEOWNERS files:', codeOwnersFiles)
+  vscode.window.showInformationMessage(`${codeOwnersFiles}`)
 
   if (codeOwnersFiles.length === 0) {
     vscode.window.showInformationMessage(
